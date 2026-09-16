@@ -78,58 +78,6 @@ APT_MIRROR=<your-debian-mirror> VERSION=1.0.0 ./publish.sh all
 - `MemoryCore/src/integrations` 同理，已在 `MemoryCore/.dockerignore` 中排除，
   运行时走 fallback。
 
-
-## GitHub Actions 发布到 GitHub Packages（GHCR）
-
-[`.github/workflows/publish-ghcr.yml`](../../.github/workflows/publish-ghcr.yml)
-复用同一个 `publish.sh`（`REGISTRY=ghcr.io`），把三件套发布到本仓库的
-Packages，认证走内置 `GITHUB_TOKEN`，无需额外 Secret：
-
-| 镜像 | 地址 |
-|---|---|
-| memory-core | `ghcr.io/<owner>/memory-core` |
-| memory-proxy | `ghcr.io/<owner>/memory-proxy` |
-| memory-hub | `ghcr.io/<owner>/memory-hub` |
-
-触发方式与版本策略（版本号遵循官方上游
-[TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)
-的 tag 命名，`vX.Y.Z` / `vX.Y.Z-beta.N`）：
-
-- **Sync Upstream Release（推荐入口）**：选择上游 tag → 自动同步代码 →
-  同一 run 内直接发布（见下节）
-- **推送 `v*` tag**（如 `git tag v2.0.2 && git push origin v2.0.2`）：
-  发布全部三件套，tag 去 `v` 前缀作镜像版本号
-- **`:latest` 只随稳定版移动**：`vX.Y.Z` 更新 `:latest`；`-beta.N` 视为
-  预发布（对齐上游 GitHub Release 的 prerelease 语义），不动 `:latest`
-- **手动 dispatch**：可指定版本号、单个镜像、平台
-
-首次推送生成的 package 默认 private，可见性在仓库 Packages 设置中调整。
-
-### 同步上游发布（Action，推荐）
-
-上游（[TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)）
-发新版本后，在 Actions 页面运行 **Sync Upstream Release**，`tag` 填上游
-tag（如 `v2.0.3`）：
-
-1. 拉取并校验上游 tag（`vX.Y.Z` / `vX.Y.Z-beta.N`）
-2. `git merge` 到运行分支（fork 自己的 workflow 与文档全部保留；
-   `CHANGELOG.md` 冲突自动按「fork 未发布章节 ⊕ 上游版本章节」拼接，
-   其它文件冲突则中止并提示手工处理）
-3. 推送同步结果，直接调用 `publish-ghcr.yml` 发布镜像 —— 版本号 = tag
-   去 `v` 前缀，`:latest` 策略同上
-
-本仓库镜像的上游历史 tag 与上游 SHA 保持一致；发布由本 Action 驱动，
-不依赖 fork 上的 tag（GITHUB_TOKEN 的 push 不触发其它 workflow，故采用
-workflow_call 直连发布）。
-
-备选：本地手工同步（效果相同）：
-
-```bash
-git remote add upstream https://github.com/TencentCloud/TencentDB-Agent-Memory.git
-git fetch upstream --tags && git merge v2.0.3 && git push origin HEAD
-# 然后运行 Publish Docker Images (GHCR)，version 填 2.0.3
-```
-
 ## 验证
 
 ```bash

@@ -8,26 +8,6 @@
 `MemoryProxy` / SDK。
 
 ---
-## [Unreleased]
-
-### 📦 CI 自动发布 Docker 镜像到 GitHub Packages（GHCR）
-
-- 新增 `.github/workflows/publish-ghcr.yml`：推送 `v*` tag 自动构建并发布
-  三件套镜像（memory-core / memory-proxy / memory-hub）到
-  `ghcr.io/<owner>/`；版本号遵循上游 tag 命名（`vX.Y.Z` /
-  `vX.Y.Z-beta.N`），`:latest` 只随稳定版移动，beta 预发布不覆盖；
-  也支持在 Actions 页面手动 dispatch，指定版本号、单个镜像、目标平台
-- 新增 `Sync Upstream Release` workflow：输入上游 tag，自动 merge 上游
-  代码到本仓库（CHANGELOG 冲突自动拼接，其它冲突明确报错）并在同一
-  run 内调用发布；`publish-ghcr.yml` 改造为可复用（workflow_call），
-  `:latest` 策略统一为「稳定版自动更新、beta 不动、可强制」
-- 已将上游全部历史 tag（v0.1.4 ~ v2.0.2-beta.1）镜像到本仓库并配置
-  `upstream` remote，镜像 tag 与上游 SHA 保持一致
-- 复用 `deploy/dockerhub/publish.sh` 作为唯一发布入口，与 Docker Hub 手动
-  发布流程同源：secret 扫描、私有 submodule 剥离、memory-hub 合并
-  context 准备均保持一致
-- 修复 `publish.sh` DRY_RUN 模式下 `$ctx` 后紧跟全角逗号被 bash 解析进
-  变量名、触发 `unbound variable` 中断的问题
 
 ## [2.0.2-beta.1] — 2026-09-07
 
