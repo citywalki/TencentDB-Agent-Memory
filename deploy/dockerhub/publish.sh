@@ -200,7 +200,7 @@ JSON
   scan "$ctx" src package.json packages
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    ok "DRY_RUN=1 → context 就绪在 $ctx，跳过 build/push"
+    ok "DRY_RUN=1 → context 就绪在 ${ctx}，跳过 build/push"
     return 0
   fi
   build_image "$image" "$ctx"
@@ -261,7 +261,7 @@ build_memory_hub() {
   scan "$ctx" panel knowledge Dockerfile start-combined.sh
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    ok "DRY_RUN=1 → context 就绪在 $ctx，跳过 build/push"
+    ok "DRY_RUN=1 → context 就绪在 ${ctx}，跳过 build/push"
     return 0
   fi
   build_image "$image" "$ctx"

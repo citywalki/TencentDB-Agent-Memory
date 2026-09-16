@@ -78,6 +78,27 @@ APT_MIRROR=<your-debian-mirror> VERSION=1.0.0 ./publish.sh all
 - `MemoryCore/src/integrations` 同理，已在 `MemoryCore/.dockerignore` 中排除，
   运行时走 fallback。
 
+
+## GitHub Actions 发布到 GitHub Packages（GHCR）
+
+[`.github/workflows/publish-ghcr.yml`](../../.github/workflows/publish-ghcr.yml)
+复用同一个 `publish.sh`（`REGISTRY=ghcr.io`），把三件套发布到本仓库的
+Packages，认证走内置 `GITHUB_TOKEN`，无需额外 Secret：
+
+| 镜像 | 地址 |
+|---|---|
+| memory-core | `ghcr.io/<owner>/memory-core` |
+| memory-proxy | `ghcr.io/<owner>/memory-proxy` |
+| memory-hub | `ghcr.io/<owner>/memory-hub` |
+
+触发方式：
+
+- **推送 `v*` tag**（如 `git tag v1.0.0 && git push origin v1.0.0`）：
+  发布全部三件套，tag 去 `v` 前缀作版本号，并同步更新 `:latest`
+- **手动 dispatch**：可指定版本号、单个镜像、平台、是否推 `:latest`
+
+首次推送生成的 package 默认 private，可见性在仓库 Packages 设置中调整。
+
 ## 验证
 
 ```bash
