@@ -125,6 +125,7 @@ workflow_call 直连发布）。
 备选：本地手工同步（效果相同）：
 
 ```bash
+git remote add upstream https://github.com/TencentCloud/TencentDB-Agent-Memory.git
 git fetch upstream --tags && git merge v2.0.3 && git push origin HEAD
 # 然后运行 Publish Docker Images (GHCR)，version 填 2.0.3
 ```
