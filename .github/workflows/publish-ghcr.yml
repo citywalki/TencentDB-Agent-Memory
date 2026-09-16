@@ -4,7 +4,12 @@
 #   v2.0.1        稳定版      → 镜像 tag 2.0.1，并更新 :latest
 #   v2.0.2-beta.1 预发布      → 镜像 tag 2.0.2-beta.1，不动 :latest
 #                              （对齐上游 GitHub Release 的 prerelease 语义）
-# 上游 tag 同步到本仓库后 git push 即自动出镜像。
+#
+# 三种触发方式：
+#   1. Sync Upstream Release workflow 调用（workflow_call，推荐）：
+#      选上游 tag → 自动同步代码 → 同一 run 内直接发布
+#   2. 推送 v* tag（tag 指向的提交需已包含本 workflow）
+#   3. 手动 dispatch：指定版本/镜像/平台
 #
 # 镜像（复用 deploy/dockerhub/publish.sh，与 Docker Hub 发布同源，
 # 自动完成 secret-scan、memory-proxy 私有 submodule 剥离、
@@ -21,6 +26,24 @@ name: Publish Docker Images (GHCR)
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      version:
+        description: "镜像版本号（X.Y.Z 或 X.Y.Z-beta.N，与上游 tag 一致）"
+        required: true
+        type: string
+      targets:
+        required: false
+        type: string
+        default: "all"
+      platforms:
+        required: false
+        type: string
+        default: "linux/amd64,linux/arm64"
+      push_latest:
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       version:
@@ -43,10 +66,7 @@ on:
         default: "linux/amd64,linux/arm64"
         type: string
       push_latest:
-        description: "强制更新 :latest（默认仅稳定版 tag 自动更新）"
-        required: false
-        default: false
-        type: boolean
+        description: "强制更新 :latest（默认：稳定版自动更新，beta 不更新）"
 
 permissions:
   contents: read
@@ -76,24 +96,26 @@ jobs:
           set -euo pipefail
 
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            # v2.0.2-beta.1 → 2.0.2-beta.1；稳定版才移动 :latest
+            # v2.0.2-beta.1 → 2.0.2-beta.1
             version="${GITHUB_REF_NAME#v}"
             targets=all
             platforms="linux/amd64,linux/arm64"
-            if [[ "$version" == *-beta.* ]]; then
-              also_latest=0
-            else
-              also_latest=1
-            fi
           else
+            # 手动 dispatch 或被 sync workflow 调用（with: 传入 inputs.*）
             version="${INPUT_VERSION:-}"
-            if [[ "$INPUT_PUSH_LATEST" == "true" ]]; then
-              also_latest=1
-            else
-              also_latest=0
-            fi
             targets="${INPUT_TARGETS:-all}"
             platforms="${INPUT_PLATFORMS:-linux/amd64,linux/arm64}"
+          fi
+
+          # :latest 策略（与上游 prerelease 语义一致）：稳定版自动更新，
+          # -beta.N 不动；push_latest=true 可强制
+          if [[ "$version" == *-beta.* ]]; then
+            also_latest=0
+          else
+            also_latest=1
+          fi
+          if [[ "$INPUT_PUSH_LATEST" == "true" ]]; then
+            also_latest=1
           fi
 
           # 严格对齐上游 tag 格式，提前失败，避免构建 20 分钟后才报错

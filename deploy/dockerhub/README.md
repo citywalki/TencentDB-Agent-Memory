@@ -95,34 +95,39 @@ Packages，认证走内置 `GITHUB_TOKEN`，无需额外 Secret：
 [TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)
 的 tag 命名，`vX.Y.Z` / `vX.Y.Z-beta.N`）：
 
+- **Sync Upstream Release（推荐入口）**：选择上游 tag → 自动同步代码 →
+  同一 run 内直接发布（见下节）
 - **推送 `v*` tag**（如 `git tag v2.0.2 && git push origin v2.0.2`）：
   发布全部三件套，tag 去 `v` 前缀作镜像版本号
 - **`:latest` 只随稳定版移动**：`vX.Y.Z` 更新 `:latest`；`-beta.N` 视为
   预发布（对齐上游 GitHub Release 的 prerelease 语义），不动 `:latest`
-- **手动 dispatch**：可指定版本号、单个镜像、平台；默认不推 `:latest`
+- **手动 dispatch**：可指定版本号、单个镜像、平台
 
 首次推送生成的 package 默认 private，可见性在仓库 Packages 设置中调整。
 
-### 与上游保持 tag 同步
+### 同步上游发布（Action，推荐）
 
-本仓库是 [TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)
-的 fork，已配置 `upstream` remote（`git remote add upstream <url>`，一次性），
-上游全部历史 tag 已镜像到本仓库。上游发布新版本（如 `v2.0.3`）后：
+上游（[TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)）
+发新版本后，在 Actions 页面运行 **Sync Upstream Release**，`tag` 填上游
+tag（如 `v2.0.3`）：
+
+1. 拉取并校验上游 tag（`vX.Y.Z` / `vX.Y.Z-beta.N`）
+2. `git merge` 到运行分支（fork 自己的 workflow 与文档全部保留；
+   `CHANGELOG.md` 冲突自动按「fork 未发布章节 ⊕ 上游版本章节」拼接，
+   其它文件冲突则中止并提示手工处理）
+3. 推送同步结果，直接调用 `publish-ghcr.yml` 发布镜像 —— 版本号 = tag
+   去 `v` 前缀，`:latest` 策略同上
+
+本仓库镜像的上游历史 tag 与上游 SHA 保持一致；发布由本 Action 驱动，
+不依赖 fork 上的 tag（GITHUB_TOKEN 的 push 不触发其它 workflow，故采用
+workflow_call 直连发布）。
+
+备选：本地手工同步（效果相同）：
 
 ```bash
-git fetch upstream --tags             # 拉取上游新代码与 tag
-git merge upstream/feat/server_team   # 同步代码（上游默认分支即 feat/server_team）
-git tag -f v2.0.3                     # 在 fork 合并后的 HEAD 上重打同名 tag
-git push origin feat/server_team v2.0.3
+git fetch upstream --tags && git merge v2.0.3 && git push origin HEAD
+# 然后运行 Publish Docker Images (GHCR)，version 填 2.0.3
 ```
-
-为什么要在 fork HEAD 上重打 tag：上游 tag 指向上游提交，该提交不含本仓库
-的 publish workflow（GitHub 按 tag 指向的提交取 workflow 定义），直接镜像
-推送不会触发构建；把同名 tag 落在包含 workflow 的合并提交上，push 即自动
-发布 `2.0.3` 镜像。已镜像的历史 tag 同理不会触发构建。
-
-也可以不动 tag，直接在 Actions 页面运行 `Publish Docker Images (GHCR)`，
-`version` 填 `2.0.3`，效果相同。
 
 ## 验证
 

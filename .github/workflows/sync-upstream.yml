@@ -1,0 +1,116 @@
+# 从官方上游（TencentCloud/TencentDB-Agent-Memory）选择一个 tag，
+# 把代码同步到本仓库，然后在同一 run 内直接走 GHCR 发布流程。
+#
+# 用法：Actions → Sync Upstream Release → Run workflow → 填上游 tag
+# （如 v2.0.3 或 v2.0.3-beta.1）。在哪个分支上运行就同步到哪个分支，
+# 通常用默认分支（上游默认分支即 feat/server_team 的对应 fork 分支）。
+#
+# 行为：
+#   1. 拉取上游该 tag（校验 vX.Y.Z / vX.Y.Z-beta.N 格式）
+#   2. git merge 到运行分支 —— fork 自己的提交（本 workflow、publish
+#      workflow、文档等）全部保留
+#   3. CHANGELOG.md 冲突自动按「fork 头部+未发布章节 ⊕ 上游版本章节」
+#      拼接；其它文件冲突则中止，提示本地手工合并
+#   4. 推送同步结果，调用 publish-ghcr.yml（reusable）发布镜像，
+#      版本号 = tag 去 v 前缀；稳定版自动更新 :latest，beta 不动
+#
+# 注：merge 推送由 GITHUB_TOKEN 完成，不会触发其它 workflow（GitHub
+# 递归触发限制），因此发布走 workflow_call 直接调用，而非依赖 tag push。
+# 本仓库镜像的上游历史 tag 保持与上游 SHA 一致，发布不依赖它们。
+
+name: Sync Upstream Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "上游 tag（如 v2.0.3 或 v2.0.3-beta.1）"
+        required: true
+        type: string
+
+permissions:
+  contents: write # 推送 merge 提交
+  packages: write # 传递给被调用的发布 workflow
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync upstream tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.sync.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: 合并上游 tag
+        id: sync
+        env:
+          TAG: ${{ inputs.tag }}
+          UPSTREAM_URL: https://github.com/TencentCloud/TencentDB-Agent-Memory.git
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+            echo "::error::tag 需为 vX.Y.Z 或 vX.Y.Z-beta.N，收到: $TAG"
+            exit 1
+          fi
+
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream --no-tags "refs/tags/${TAG}:refs/tags/${TAG}"
+
+          sha=$(git rev-parse "${TAG}^{commit}")
+          echo "上游 $TAG → ${sha:0:12}（$(git show -s --format=%cs "$sha")）"
+
+          if git merge --no-edit "$TAG"; then
+            echo "merge 干净完成"
+          else
+            conflicted=$(git diff --name-only --diff-filter=U)
+            if [[ "$conflicted" != "CHANGELOG.md" ]]; then
+              echo "::error::出现无法自动处理的冲突: ${conflicted:-<未知>}"
+              echo "请本地执行: git fetch upstream --tags && git merge $TAG，解决后重推再重新运行本 workflow"
+              exit 1
+            fi
+            # CHANGELOG 冲突：fork 头部 + fork 未发布章节 ⊕ 上游版本章节
+            git show :2:CHANGELOG.md > /tmp/ours.changelog
+            git show :3:CHANGELOG.md > /tmp/theirs.changelog
+            {
+              sed -n '1,/^---$/p' /tmp/ours.changelog
+              echo ""
+              echo "## [Unreleased]"
+              awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' /tmp/ours.changelog
+              awk 'f{print} /^---$/{f=1}' /tmp/theirs.changelog
+            } > CHANGELOG.md
+            git add CHANGELOG.md
+            git commit --no-edit
+            echo "CHANGELOG 冲突已自动合并"
+          fi
+
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 推送同步结果
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:${BRANCH}"
+          echo "已同步到 ${BRANCH}"
+
+  publish:
+    name: Publish images
+    needs: sync
+    uses: ./.github/workflows/publish-ghcr.yml
+    with:
+      version: ${{ needs.sync.outputs.version }}
+    permissions:
+      contents: read
+      packages: write
