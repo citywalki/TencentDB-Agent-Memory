@@ -91,11 +91,15 @@ Packages，认证走内置 `GITHUB_TOKEN`，无需额外 Secret：
 | memory-proxy | `ghcr.io/<owner>/memory-proxy` |
 | memory-hub | `ghcr.io/<owner>/memory-hub` |
 
-触发方式：
+触发方式与版本策略（版本号遵循官方上游
+[TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)
+的 tag 命名，`vX.Y.Z` / `vX.Y.Z-beta.N`）：
 
-- **推送 `v*` tag**（如 `git tag v1.0.0 && git push origin v1.0.0`）：
-  发布全部三件套，tag 去 `v` 前缀作版本号，并同步更新 `:latest`
-- **手动 dispatch**：可指定版本号、单个镜像、平台、是否推 `:latest`
+- **推送 `v*` tag**（如 `git tag v2.0.2 && git push origin v2.0.2`）：
+  发布全部三件套，tag 去 `v` 前缀作镜像版本号
+- **`:latest` 只随稳定版移动**：`vX.Y.Z` 更新 `:latest`；`-beta.N` 视为
+  预发布（对齐上游 GitHub Release 的 prerelease 语义），不动 `:latest`
+- **手动 dispatch**：可指定版本号、单个镜像、平台；默认不推 `:latest`
 
 首次推送生成的 package 默认 private，可见性在仓库 Packages 设置中调整。
 

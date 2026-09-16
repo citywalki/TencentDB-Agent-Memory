@@ -14,8 +14,9 @@
 
 - 新增 `.github/workflows/publish-ghcr.yml`：推送 `v*` tag 自动构建并发布
   三件套镜像（memory-core / memory-proxy / memory-hub）到
-  `ghcr.io/<owner>/`，并同步更新 `:latest`；也支持在 Actions 页面手动
-  dispatch，指定版本号、单个镜像、目标平台
+  `ghcr.io/<owner>/`；版本号遵循上游 tag 命名（`vX.Y.Z` /
+  `vX.Y.Z-beta.N`），`:latest` 只随稳定版移动，beta 预发布不覆盖；
+  也支持在 Actions 页面手动 dispatch，指定版本号、单个镜像、目标平台
 - 复用 `deploy/dockerhub/publish.sh` 作为唯一发布入口，与 Docker Hub 手动
   发布流程同源：secret 扫描、私有 submodule 剥离、memory-hub 合并
   context 准备均保持一致
