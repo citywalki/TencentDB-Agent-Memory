@@ -103,6 +103,27 @@ Packages，认证走内置 `GITHUB_TOKEN`，无需额外 Secret：
 
 首次推送生成的 package 默认 private，可见性在仓库 Packages 设置中调整。
 
+### 与上游保持 tag 同步
+
+本仓库是 [TencentCloud/TencentDB-Agent-Memory](https://github.com/TencentCloud/TencentDB-Agent-Memory)
+的 fork，已配置 `upstream` remote（`git remote add upstream <url>`，一次性），
+上游全部历史 tag 已镜像到本仓库。上游发布新版本（如 `v2.0.3`）后：
+
+```bash
+git fetch upstream --tags             # 拉取上游新代码与 tag
+git merge upstream/feat/server_team   # 同步代码（上游默认分支即 feat/server_team）
+git tag -f v2.0.3                     # 在 fork 合并后的 HEAD 上重打同名 tag
+git push origin feat/server_team v2.0.3
+```
+
+为什么要在 fork HEAD 上重打 tag：上游 tag 指向上游提交，该提交不含本仓库
+的 publish workflow（GitHub 按 tag 指向的提交取 workflow 定义），直接镜像
+推送不会触发构建；把同名 tag 落在包含 workflow 的合并提交上，push 即自动
+发布 `2.0.3` 镜像。已镜像的历史 tag 同理不会触发构建。
+
+也可以不动 tag，直接在 Actions 页面运行 `Publish Docker Images (GHCR)`，
+`version` 填 `2.0.3`，效果相同。
+
 ## 验证
 
 ```bash
